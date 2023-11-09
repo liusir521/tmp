@@ -4,13 +4,13 @@ import "time"
 
 type Order struct {
 	ID         int64
-	UserId     string    `gorm:"column:userid"`
-	DriverId   string    `gorm:"column:driverid"`
-	Money      float64   `gorm:"column:money"`
-	CreateTime time.Time `gorm:"column:createtime"`
-	StartPlace string    `gorm:"column:stratplace"`
-	EndPlace   string    `gorm:"column:endplace"`
-	Status     string    `gorm:"column:status"`
+	UserId     string    `gorm:"column:userid" json:"userId"`
+	DriverId   string    `gorm:"column:driverid" json:"driverId"`
+	Money      float64   `gorm:"column:money" json:"money"`
+	CreateTime time.Time `gorm:"column:createtime" json:"createTime"`
+	StartPlace string    `gorm:"column:stratplace" json:"startPlace"`
+	EndPlace   string    `gorm:"column:endplace" json:"endPlace"`
+	Status     string    `gorm:"column:status" json:"status"`
 }
 
 func (u Order) TableName() string {

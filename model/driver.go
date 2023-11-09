@@ -5,9 +5,10 @@ type Driver struct {
 	Name      string  `gorm:"column:name"`
 	Phone     string  `gorm:"column:phone"`
 	Money     float64 `gorm:"column:money"`
-	IsWorking string  `gorm:"column:isworking"`
-	CarId     int64   `gorm:"column:carid"`
+	IsWorking bool    `gorm:"column:isworking"`
+	CarId     string  `gorm:"column:carid"`
 	RunCount  int64   `gorm:"column:runcount"`
+	Password  string  `gorm:"column:password"`
 }
 
 func (u Driver) TableName() string {
