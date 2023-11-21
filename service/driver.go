@@ -1,19 +1,15 @@
 package service
 
 import (
-	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/nsqio/go-nsq"
 	"net/http"
-	"time"
+	"strconv"
+	"sync"
 	"tmp/dao"
 	"tmp/helper"
+	"tmp/messagehandler"
 	"tmp/model"
-)
-
-// 司机是否继续订阅信号
-var (
-	stopctx  context.Context
-	stopfunc context.CancelFunc
 )
 
 // 创建司机
@@ -70,7 +66,6 @@ func DriverWork(c *gin.Context) {
 		"code": 200,
 		"msg":  "更新状态成功",
 	})
-	time.Sleep(300 * time.Second)
 }
 
 // 更改司机状态为休息
@@ -90,7 +85,26 @@ func DriverNotWork(c *gin.Context) {
 	})
 }
 
-// 初始化取消订阅信号
-func InitStopCtx() {
-	stopctx, stopfunc = context.WithCancel(context.Background())
+// 开始接单
+func DriverStart(c *gin.Context) {
+	driveridstr := c.PostForm("driverid")
+	carid := c.PostForm("carid")
+	config := nsq.NewConfig()
+	consumer, err := nsq.NewConsumer("order", "generalorder", config)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": -1,
+			"msg":  "订阅消息出错:" + err.Error(),
+		})
+	}
+	driverid, _ := strconv.ParseInt(driveridstr, 10, 64)
+	wg := sync.WaitGroup{}
+	drivermessage := &messagehandler.DriverMessageHandler{
+		DriverId: driverid,
+		CarId:    carid,
+		Wg:       wg,
+	}
+	wg.Add(1)
+	consumer.AddHandler(drivermessage)
+	wg.Wait()
 }

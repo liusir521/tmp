@@ -1,12 +1,21 @@
 package service
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 	"tmp/dao"
 	"tmp/helper"
 	"tmp/model"
+)
+
+var (
+	usercountmutex sync.RWMutex
+	usercount      int64
 )
 
 func UserRegister(c *gin.Context) {
@@ -42,42 +51,32 @@ func UserRegister(c *gin.Context) {
 	return
 }
 
+// 用户上传订单
 func UserUploadOrder(c *gin.Context) {
-	//userid := c.PostForm("userid")
-	//money := c.PostForm("money")
-	//floatmoney, err := strconv.ParseFloat(money, 64)
-	//if err != nil {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"code": -1,
-	//		"msg":  "金额格式错误",
-	//	})
-	//	return
-	//}
-	//createtime := time.Now()
-	//startplace := c.PostForm("startplace")
-	//endplace := c.PostForm("endplace")
-	//status := "已创建"
-	//order := &model.Order{
-	//	UserId:     userid,
-	//	Money:      floatmoney,
-	//	CreateTime: createtime,
-	//	StartPlace: startplace,
-	//	EndPlace:   endplace,
-	//	Status:     status,
-	//}
-	//bytes := helper.OrderStruct2Bytes(*order)
-	//fmt.Println(string(bytes))
-	order2 := &model.Order{
-		UserId:     "1",
-		Money:      1,
-		CreateTime: time.Now(),
-		StartPlace: "北京",
-		EndPlace:   "上海",
-		Status:     "已创建",
+	userid := c.PostForm("userid")
+	money := c.PostForm("money")
+	floatmoney, err := strconv.ParseFloat(money, 64)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": -1,
+			"msg":  "金额格式错误",
+		})
+		return
 	}
-	bytes2 := helper.OrderStruct2Bytes(*order2)
-	var err error
-	err = helper.Publish("order", bytes2)
+	createtime := time.Now()
+	startplace := c.PostForm("startplace")
+	endplace := c.PostForm("endplace")
+	status := "已创建"
+	order := &model.Order{
+		UserId:     userid,
+		Money:      floatmoney,
+		CreateTime: createtime,
+		StartPlace: startplace,
+		EndPlace:   endplace,
+		Status:     status,
+	}
+	bytes := helper.OrderStruct2Bytes(*order)
+	err = helper.Publish("order", bytes)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": -1,
@@ -88,4 +87,29 @@ func UserUploadOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 	})
+}
+
+// 用户查询订单状态
+func UserQueryOrder(c *gin.Context) {
+	userid := c.PostForm("userid")
+	result, err := dao.Rdb.Get(context.Background(), "user"+userid).Result()
+	if err == redis.Nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "等待接单中",
+		})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": -1,
+			"msg":  "查询订单状态出错",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"msg":  result,
+	})
+	return
 }
