@@ -3,8 +3,10 @@ package messagehandler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/nsqio/go-nsq"
-	"sync"
+	"net/http"
 	"time"
 	"tmp/dao"
 	"tmp/global"
@@ -13,13 +15,13 @@ import (
 
 // 通过
 type DriverMessageHandler struct {
-	DriverId int64
-	CarId    string
-	Wg       sync.WaitGroup
+	DriverId  int64
+	CarId     string
+	Consummer *nsq.Consumer
+	Res       *gin.Context
 }
 
 func (driver DriverMessageHandler) HandleMessage(m *nsq.Message) error {
-	defer driver.Wg.Done()
 	if len(m.Body) == 0 {
 		return nil
 	}
@@ -29,21 +31,28 @@ func (driver DriverMessageHandler) HandleMessage(m *nsq.Message) error {
 		return err
 	}
 	order.Carid = driver.CarId
-	order.DriverId = string(driver.DriverId)
+	order.DriverId = driver.DriverId
+	fmt.Println(driver.DriverId, "接到订单", driver.CarId, order)
 	order.Status = "已接单"
 	orderkey := "order" + string(order.ID)
 
 	// redis分布式锁避免重复消费
-	err = dao.Rdb.SetNX(context.Background(), orderkey, order, 5*time.Second).Err()
+	_, err = dao.Rdb.SetNX(context.Background(), orderkey, order, 5*time.Second).Result()
 	//err = dao.Rdb.Set(context.Background(), "user"+order.UserId, order, 0).Err()
 	if err != nil {
 		return err
+	} else {
+		// 将接到的订单信息放入到订单对象池中
+		err = global.GlobalOrder.Add(orderkey, order, 0)
+		if err != nil {
+			return err
+		}
+		driver.Res.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  order,
+		})
+		m.Finish()
+		driver.Consummer.Stop()
+		return nil
 	}
-
-	// 将接到的订单信息放入到订单对象池中
-	err = global.GlobalOrder.Add(orderkey, order, 0)
-	if err != nil {
-		return err
-	}
-	return nil
 }

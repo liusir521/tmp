@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/nsqio/go-nsq"
+	"tmp/conf"
 	"tmp/model"
 )
 
@@ -33,7 +34,7 @@ func OrderStruct2Bytes(order model.Order) []byte {
 
 func Publish(topic string, data []byte) error {
 	config := nsq.NewConfig()
-	producer, err := nsq.NewProducer("192.168.0.102:4150", config)
+	producer, err := nsq.NewProducer(conf.NsqdAddr, config)
 	defer producer.Stop()
 	if err != nil {
 		return err
