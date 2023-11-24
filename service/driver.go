@@ -148,26 +148,65 @@ func DriverStart(c *gin.Context) {
 func FinshOrder(c *gin.Context) {
 	userid := "user" + c.PostForm("userid")
 	orderid := "order" + c.PostForm("orderid")
+	driverid := "driver" + c.PostForm("driverid")
 	// 将用户从其缓存池中删除
-	global.GlobalUser.Delete(userid)
-	get, b := global.GlobalOrder.Get(orderid)
+	userres, b := global.GlobalUser.Get(userid)
 	if b {
-		order := get.(model.Order)
-		order.Status = "已完成"
-		// 将订单信息更新到数据库
-		err := dao.DB.Save(&order).Error
-		if err != nil {
+		user := userres.(model.User)
+		get, b := global.GlobalOrder.Get(orderid)
+		if b {
+			order := get.(model.Order)
+			// 扣除用户费用，将用户从缓存池中删除
+			user.Money -= order.Money
+			err2 := dao.DB.Save(&user).Error
+			if err2 != nil {
+				c.JSON(http.StatusOK, gin.H{
+					"code": -1,
+					"msg":  "用户更新失败" + err2.Error(),
+				})
+				return
+			}
+			get, b := global.GlobalOrder.Get(driverid)
+			if b {
+				// 更新司机信息
+				driver := get.(model.Driver)
+				driver.Money += order.Money
+				driver.RunCount++
+				err2 := dao.DB.Save(&driver).Error
+				if err2 != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"code": -1,
+						"msg":  "司机更新失败" + err2.Error(),
+					})
+				}
+				global.GlobalDriver.Set(driverid, driver, 0)
+				order.Status = "已完成"
+				// 将订单信息更新到数据库
+				err := dao.DB.Save(&order).Error
+				if err != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"code": -1,
+						"msg":  "订单更新失败" + err.Error(),
+					})
+				}
+				// 将订单从订单缓存池中删除
+				global.GlobalOrder.Delete(orderid)
+			} else {
+				c.JSON(http.StatusOK, gin.H{
+					"code": -1,
+					"msg":  "司机信息出错",
+				})
+			}
+		} else {
 			c.JSON(http.StatusOK, gin.H{
 				"code": -1,
-				"msg":  "订单更新失败" + err.Error(),
+				"msg":  "订单信息出错",
 			})
 		}
-		// 将订单从订单缓存池中删除
-		global.GlobalOrder.Delete(orderid)
 	} else {
 		c.JSON(http.StatusOK, gin.H{
 			"code": -1,
-			"msg":  "订单信息出错",
+			"msg":  "用户信息出错",
 		})
 	}
 }

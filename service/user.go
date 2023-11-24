@@ -84,14 +84,6 @@ func UserUploadOrder(c *gin.Context) {
 		EndPlace:   endplace,
 		Status:     status,
 	}
-	err = dao.DB.Create(&order).Error
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": -1,
-			"msg":  "订单存储失败" + err.Error(),
-		})
-		return
-	}
 	bytes := helper.OrderStruct2Bytes(*order)
 	err = helper.Publish("order", bytes)
 	if err != nil {

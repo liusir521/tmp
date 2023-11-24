@@ -1,6 +1,6 @@
 package conf
 
 var (
-	RedisAddr = "10.67.73.248:6379"
-	NsqdAddr  = "10.67.73.248:4150"
+	RedisAddr = "192.168.0.102:6379"
+	NsqdAddr  = "192.168.0.102:4150"
 )
