@@ -2,13 +2,16 @@ package service
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/nsqio/go-nsq"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+	"tmp/conf"
 	"tmp/dao"
 	"tmp/global"
 	"tmp/helper"
+	"tmp/messagehandler"
 	"tmp/model"
 )
 
@@ -183,4 +186,39 @@ func UserQueryOrder(c *gin.Context) {
 			"msg":  "订单未找到",
 		})
 	}
+}
+
+// 消费顺风车订单
+func ConsumeTogetgerOrder(c *gin.Context) {
+	useridstr := c.PostForm("userid")
+	userid, _ := strconv.ParseInt(useridstr, 10, 64)
+	startplace := c.PostForm("startplace")
+	endplace := c.PostForm("endplace")
+	config := nsq.NewConfig()
+	// 创建消费者
+	consumer, err := nsq.NewConsumer(startplace+endplace, "togetherorder", config)
+	usermessage := &messagehandler.UserMessageHandler{
+		UserId:    userid,
+		Consummer: consumer,
+		Res:       c,
+	}
+	consumer.AddHandler(usermessage)
+	defer consumer.Stop()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": -1,
+			"msg":  "订阅消息出错:" + err.Error(),
+		})
+		return
+	}
+	// 连接消息队列
+	err = consumer.ConnectToNSQD(conf.NsqdAddr)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": -1,
+			"msg":  "连接消息队列出错:" + err.Error(),
+		})
+		return
+	}
+	<-consumer.StopChan
 }

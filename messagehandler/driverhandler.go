@@ -13,7 +13,6 @@ import (
 	"tmp/model"
 )
 
-// 通过
 type DriverMessageHandler struct {
 	DriverId  int64
 	CarId     string
@@ -38,7 +37,6 @@ func (driver DriverMessageHandler) HandleMessage(m *nsq.Message) error {
 
 	// redis分布式锁避免重复消费
 	_, err = dao.Rdb.SetNX(context.Background(), orderkey, order, 5*time.Second).Result()
-	//err = dao.Rdb.Set(context.Background(), "user"+order.UserId, order, 0).Err()
 	if err != nil {
 		return err
 	} else {
